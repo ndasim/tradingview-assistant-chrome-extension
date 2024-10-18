@@ -7,7 +7,7 @@ tvChart.getTicker = async () => {
 
   let curTickerName = tickerEl.innerText
   // const fixCurTickerName = curTickerName.includes('\n') ?  curTickerName.split('\n')[1] : curTickerName
-  return curTickerName.includes('\n') ?  curTickerName.split('\n')[1] : curTickerName
+  return curTickerName.includes('\n') ? curTickerName.split('\n')[1] : curTickerName
 }
 
 tvChart.getCurrentTimeFrame = async () => {
@@ -15,7 +15,7 @@ tvChart.getCurrentTimeFrame = async () => {
   const curTimeFrameEl = isFavoriteTimeframe ? await page.waitForSelector(SEL.chartTimeframeActive, 500) :
     await page.waitForSelector(SEL.chartTimeframeMenuOrSingle, 500)
 
-  if(!curTimeFrameEl || !curTimeFrameEl.innerText) {
+  if (!curTimeFrameEl || !curTimeFrameEl.innerText) {
     throw new Error('There is not timeframe element on page. Open correct page please')
     // return null
   }
@@ -30,17 +30,17 @@ tvChart.changeTimeFrame = async (setTF) => {
 
   let curTimeFrameText = await tvChart.getCurrentTimeFrame()
 
-  if(strategyTF === curTimeFrameText) // Timeframe already set
+  if (strategyTF === curTimeFrameText) // Timeframe already set
     return
 
   // Search timeframe among favorite timeframes
   const isFavoriteTimeframe = await document.querySelector(SEL.chartTimeframeFavorite)
-  if(isFavoriteTimeframe) {
+  if (isFavoriteTimeframe) {
     await page.waitForSelector(SEL.chartTimeframeFavorite, 1000)
     const allTimeFrameEl = document.querySelectorAll(SEL.chartTimeframeFavorite)
-    for(let tfEl of allTimeFrameEl) {
+    for (let tfEl of allTimeFrameEl) {
       const tfVal = !tfEl || !tfEl.innerText ? '' : tvChart.correctTF(tfEl.innerText)
-      if(tfVal === strategyTF) {
+      if (tfVal === strategyTF) {
         tfEl.click() // Timeframe changed
         return
       }
@@ -49,32 +49,33 @@ tvChart.changeTimeFrame = async (setTF) => {
 
   // Search timeframe among timeframes menu items
   const timeFrameMenuEl = await document.querySelector(SEL.chartTimeframeMenuOrSingle)
-  if(!timeFrameMenuEl)
+  if (!timeFrameMenuEl)
     throw new Error('There is no timeframe selection menu element on the page')
   page.mouseClick(timeFrameMenuEl)
   const menuTFItem = await page.waitForSelector(SEL.chartTimeframeMenuItem, 1500)
-  if(!menuTFItem)
+  if (!menuTFItem)
     throw new Error('There is no items in timeframe menu on the page')
 
   let foundTF = await tvChart.selectTimeFrameMenuItem(strategyTF)
-  if(foundTF) {
+  if (foundTF) {
     curTimeFrameText = await tvChart.getCurrentTimeFrame()
-    if(strategyTF !== curTimeFrameText)
+    if (strategyTF !== curTimeFrameText)
       throw new Error(`Failed to set the timeframe value to "${strategyTF}", the current "${curTimeFrameText}"`)
     return //`Timeframe changed to ${alertTF}`
   }
 
   const tfValueEl = document.querySelector(SEL.chartTimeframeMenuInput)
-  if(!tfValueEl)
+  if (!tfValueEl)
     throw new Error(`There is no input element to set value of timeframe`)
   tfValueEl.scrollIntoView()
   page.setInputElementValue(tfValueEl, strategyTF.substr(0, strategyTF.length - 1))
 
   page.mouseClickSelector(SEL.chartTimeframeMenuType)
   const isTFTypeEl = page.waitForSelector(SEL.chartTimeframeMenuTypeItems, 1500)
-  if(!isTFTypeEl)
+  if (!isTFTypeEl)
     throw new Error(`The elements of the timeframe type did not appear while adding it`)
-  switch (strategyTF[strategyTF.length-1]) {
+
+  switch (strategyTF[strategyTF.length - 1]) {
     case 'm':
       page.mouseClickSelector(SEL.chartTimeframeMenuTypeItemsMin)
       break;
@@ -94,29 +95,30 @@ tvChart.changeTimeFrame = async (setTF) => {
       page.mouseClickSelector(SEL.chartTimeframeMenuTypeItemsRange)
       break;
     default:
-      return {error: 7, message: `Unknown timeframe type in "${strategyTF}"`}
+      return { error: 7, message: `Unknown timeframe type in "${strategyTF}"` }
   }
+
   page.mouseClickSelector(SEL.chartTimeframeMenuAdd)
   await page.waitForTimeout(1000)
   foundTF = await tvChart.selectTimeFrameMenuItem(strategyTF)
   curTimeFrameText = await tvChart.getCurrentTimeFrame()
   if (!foundTF)
-    throw new Error( `Failed to add a timeframe "${strategyTF}" to the list`)
-  else if(strategyTF !== curTimeFrameText)
+    throw new Error(`Failed to add a timeframe "${strategyTF}" to the list`)
+  else if (strategyTF !== curTimeFrameText)
     throw new Error(`Failed to set the timeframe value to "${strategyTF}" after adding it to timeframe list, the current "${curTimeFrameText}"`)
 }
 
 
-tvChart.selectTimeFrameMenuItem = async(alertTF) => {
+tvChart.selectTimeFrameMenuItem = async (alertTF) => {
   const allMenuTFItems = document.querySelectorAll(SEL.chartTimeframeMenuItem)
-  for(let item of allMenuTFItems) {
+  for (let item of allMenuTFItems) {
     const tfVal = item.getAttribute('data-value')
     let tfNormValue = tfVal
     const isMinutes = tvChart.isTFDataMinutes(tfVal)
     tfNormValue = isMinutes && parseInt(tfVal) % 60 === 0 ? `${parseInt(tfVal) / 60}h` : isMinutes ? `${tfVal}m` : tfNormValue // If hours
-    if (tfVal[tfVal.length-1] === 'S')
-      tfNormValue = `${tfVal.substr(0,tfVal.length - 1)}s`
-    if(tfNormValue === alertTF) {
+    if (tfVal[tfVal.length - 1] === 'S')
+      tfNormValue = `${tfVal.substr(0, tfVal.length - 1)}s`
+    if (tfNormValue === alertTF) {
       page.mouseClick(item)
       await page.waitForSelector(SEL.chartTimeframeMenuItem, 1500, true)
       return tfNormValue
@@ -128,3 +130,37 @@ tvChart.selectTimeFrameMenuItem = async(alertTF) => {
 
 tvChart.isTFDataMinutes = (tf) => !['S', 'D', 'M', 'W', 'R'].includes(tf[tf.length - 1])
 tvChart.correctTF = (tf) => ['D', 'M', 'W'].includes(tf) ? `1${tf}` : tf
+
+tvChart.selectTicker = async (pair) => {
+  let tickerEl = document.querySelector("#header-toolbar-symbol-search")
+  if (!tickerEl)
+    throw new Error(`Can't get TradingView symbol element on chart`)
+
+  let curTickerName = tickerEl.innerText
+  if (curTickerName === pair)
+    return
+
+  page.mouseClick(tickerEl)
+  await page.waitForSelector("#overlap-manager-root input", 1500, true)
+
+  const pairInputEl = document.querySelector("#overlap-manager-root input")
+  if (!pairInputEl)
+    throw new Error(`Can't get TradingView symbol input element on chart`)
+
+  page.setInputElementValue(pairInputEl, pair)
+  await page.waitForTimeout(1000)
+  await page.waitForSelector('[data-name="symbol-search-dialog-content-item"] div:nth-child(1)', 1500)
+  nextTickerEl = document.querySelector('[data-name="symbol-search-dialog-content-item"] div:nth-child(1)')
+  if (!nextTickerEl)
+    throw new Error(`Can't get TradingView symbol element on chart after setting value`)
+  
+  //page.mouseClick(nextTickerEl)
+
+  nextTickerEl.click()
+
+  await page.waitForTimeout(3000)
+  tickerEl = document.querySelector("#header-toolbar-symbol-search")
+  curTickerName = tickerEl.innerText
+  if (curTickerName !== pair)
+    throw new Error(`Failed to set the pair value to "${pair}", the current "${curTickerName}"`)
+}

@@ -203,6 +203,12 @@ function sendSignalToActiveTab(signal) {
     const message = {action: signal}
     if(iondvOptions)
       message.options = iondvOptions
-    chrome.tabs.sendMessage(tabs[0].id, message, function() {window.close()});
+    chrome.tabs.sendMessage(tabs[0].id, message, function() {
+      if (!window.chrome.runtime.lastError) {
+        window.close()
+     } else {
+       // error handling code goes here
+     }
+    });
   });
 }

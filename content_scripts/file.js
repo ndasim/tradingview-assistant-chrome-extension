@@ -124,12 +124,38 @@ file.convertResultsToCSV = (testResults) => {
 
   if(!testResults || !testResults.perfomanceSummary || !testResults.perfomanceSummary.length)
     return 'There is no data for conversion'
+  /*
   let headers = Object.keys(testResults.perfomanceSummary[0]) // The first test table can be with error and can't have rows with previous values when parsedReport
   if(testResults.hasOwnProperty('paramsNames') && headers.length <= (Object.keys(testResults.paramsNames).length + 1)) { // Find the another header if only params names and 'comment' in headers
     const headersAll = testResults.perfomanceSummary.find(report => Object.keys(report).length > headers.length)
     if(headersAll)
       headers = Object.keys(headersAll)
-  }
+  }*/
+
+  let headers = [
+    "Net Profit: All",
+    "Net Profit %: All",
+    "Max Drawdown",
+    "Max Drawdown %",
+    "Buy & Hold Return %",
+    "Sharpe Ratio",
+    "Sortino Ratio",
+    "Profit Factor: All",
+    "Open PL %",
+    "Percent Profitable: All",
+    "Avg Trade %: All",
+    "Ratio Avg Win / Avg Loss: All",
+    "Largest Winning Trade %: All",
+    "Largest Losing Trade %: All",
+    "Avg # Bars in Trades: All",
+    "__Always In Position?",
+    "__Use Percantage Decrease?",
+    "__Volume Percentage",
+    "__Deep Percentage",
+    "__Percent Decrease",
+    "__Stop Loss %",
+    "__Take Profit %",
+]
 
   let csv = headers.map(header => JSON.stringify(header)).join(',')
   csv += '\n'

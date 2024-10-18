@@ -1,3 +1,5 @@
+tickers = ["SOLUSDT.P", "DYDXUSDT.P", "BTCUSDT.P", "ETHUSDT.P", "BNBUSDT.P", "ADAUSDT.P", "XRPUSDT.P", "DOTUSDT.P", "DOGEUSDT.P", "ENJUSDT.P"]
+
 const action = {
   workerStatus: null
 }
@@ -92,54 +94,67 @@ action.testStrategy = async (request, isDeepTest = false) => {
     const strategyData = await action._getStrategyData()
     const [allRangeParams, paramRange, cycles] = await action._getRangeParams(strategyData)
     if(allRangeParams !== null) { // click cancel on parameters
-      const testParams = await action._getTestParams(request, strategyData, allRangeParams, paramRange, cycles)
-      console.log('Test parameters', testParams)
-      action._showStartMsg(testParams.paramSpace, testParams.cycles, testParams.backtestDelay ? ` with delay between tests ${testParams.backtestDelay} sec` : '')
-      testParams.isDeepTest = isDeepTest
-      await tv.setDeepTest(isDeepTest, testParams.deepStartDate)
-
-      let testResults = {}
-      if (testParams.shouldTestTF) {
-        if (!testParams.listOfTF || testParams.listOfTF.length === 0) {
-          await ui.showWarningPopup(`You set to test timeframes in options, but timeframes list after correction values is empty: ${testParams.listOfTFSource}\nPlease set correct one with separation by comma. \nFor example: 1m,4h`)
-        } else {
-          let bestValue = null
-          let bestTf = null
-          testParams.shouldSkipInitBestResult = true
-          for (const tf of testParams.listOfTF) {
-            console.log('\nTest timeframe:', tf)
-            await tvChart.changeTimeFrame(tf)
-            testParams.timeFrame = tf
-            if(testParams.hasOwnProperty('bestPropVal'))
-              delete testParams.bestPropVal
-            if(testParams.hasOwnProperty('bestValue'))
-              delete testParams.bestValue
-            testResults = await backtest.testStrategy(testParams, strategyData, allRangeParams) // TODO think about not save, but store them from  testResults.perfomanceSummary, testResults.filteredSummary = [], testResults.timeFrame to list
-            await action._saveTestResults(testResults, testParams, false)
-            if (bestTf === null) {
-              bestValue = testResults.bestValue
-              bestTf = tf
-            } else if (testResults.isMaximizing ? testParams.bestValue > bestValue : testParams.bestValue < bestValue) {
-              bestValue = testResults.bestValue
-              bestTf = tf
-            }
-            if (action.workerStatus === null) {
-              console.log('Stop command detected')
-              break
-            }
-          }
-          if (bestValue !== null) {
-            await ui.showPopup(`The best value ${bestValue} for timeframe ${bestTf}. Check the saved files to get the best result parameters`)
-          } else {
-            await ui.showWarningPopup(`Did not found any result value after testing`)
-          }
+      for (const ticker of tickers) {
+        await tvChart.selectTicker(ticker)
+        
+        if (action.workerStatus === null) {
+          console.log('Stop command detected')
+          break
         }
-      } else {
-        testResults = await backtest.testStrategy(testParams, strategyData, allRangeParams)
-        await action._saveTestResults(testResults, testParams)
+
+        const testParams = await action._getTestParams(request, strategyData, allRangeParams, paramRange, cycles)
+        console.log('Test parameters', testParams)
+        action._showStartMsg(testParams.paramSpace, testParams.cycles, testParams.backtestDelay ? ` with delay between tests ${testParams.backtestDelay} sec` : '')
+        testParams.isDeepTest = isDeepTest
+        await tv.setDeepTest(isDeepTest, testParams.deepStartDate)
+
+        let testResults = {}
+        if (testParams.shouldTestTF) {
+          if (!testParams.listOfTF || testParams.listOfTF.length === 0) {
+            await ui.showWarningPopup(`You set to test timeframes in options, but timeframes list after correction values is empty: ${testParams.listOfTFSource}\nPlease set correct one with separation by comma. \nFor example: 1m,4h`)
+          } else {
+            let bestValue = null
+            let bestTf = null
+            testParams.shouldSkipInitBestResult = true
+            for (const tf of testParams.listOfTF) {
+              console.log('\nTest timeframe:', tf)
+              await tvChart.changeTimeFrame(tf)
+              testParams.timeFrame = tf 
+              if(testParams.hasOwnProperty('bestPropVal'))
+                delete testParams.bestPropVal
+              if(testParams.hasOwnProperty('bestValue'))
+                delete testParams.bestValue
+              
+              // Test here
+              testResults = await backtest.testStrategy(testParams, strategyData, allRangeParams) // TODO think about not save, but store them from  testResults.perfomanceSummary, testResults.filteredSummary = [], testResults.timeFrame to list
+              
+              await action._saveTestResults(testResults, testParams, false)
+              
+              if (bestTf === null) {
+                bestValue = testResults.bestValue
+                bestTf = tf
+              } else if (testResults.isMaximizing ? testParams.bestValue > bestValue : testParams.bestValue < bestValue) {
+                bestValue = testResults.bestValue
+                bestTf = tf
+              }
+              if (action.workerStatus === null) {
+                console.log('Stop command detected')
+                break
+              }
+            }
+            if (bestValue !== null) {
+              await ui.showPopup(`The best value ${bestValue} for timeframe ${bestTf}. Check the saved files to get the best result parameters`)
+            } else {
+              await ui.showWarningPopup(`Did not found any result value after testing`)
+            }
+          }
+        } else {
+          testResults = await backtest.testStrategy(testParams, strategyData, allRangeParams)
+          await action._saveTestResults(testResults, testParams, false)
+        }
+        if (isDeepTest)
+          await tv.setDeepTest(!isDeepTest) // Reverse (switch off)
       }
-      if (isDeepTest)
-        await tv.setDeepTest(!isDeepTest) // Reverse (switch off)
     }
   } catch (err) {
     console.error(err)
@@ -213,9 +228,11 @@ action._getTestParams = async (request, strategyData, allRangeParams, paramRange
   }
   console.log('paramSpaceNumber', paramSpaceNumber)
 
+
   testParams.shouldTestTF = options.hasOwnProperty('shouldTestTF') ? options.shouldTestTF : false
   testParams.listOfTF = action._parseTF(options.listOfTF)
   testParams.listOfTFSource = options.listOfTF
+  
   testParams.shouldSkipInitBestResult = false // TODO get from options
 
   testParams.paramSpace = paramSpaceNumber
@@ -256,36 +273,70 @@ action._showStartMsg = (paramSpaceNumber, cycles, addInfo) => {
   ui.statusMessage(`Started${addInfo}.`, extraHeader)
 }
 
+/**
+ * Saves the test results after performing tests.
+ * 
+ * @param {Object} testResults - The results of the test.
+ * @param {Object} testParams - The parameters used for the test.
+ * @param {boolean} [isFinalTest=true] - Flag indicating if this is the final test.
+ */
 action._saveTestResults = async (testResults, testParams, isFinalTest = true) => {
-  console.log('testResults', testResults)
-  if(!testResults.perfomanceSummary && !testResults.perfomanceSummary.length) {
-    await ui.showWarningPopup('There is no testing data for saving. Try to do test again')
-    return
+  console.log('testResults', testResults);
+
+  // Check if there is performance summary data to save
+  if (!testResults.perfomanceSummary || !testResults.perfomanceSummary.length) {
+    await ui.showWarningPopup('There is no testing data for saving. Try to do test again');
+    return;
   }
 
-  const CSVResults = file.convertResultsToCSV(testResults)
-  const bestResult = testResults.perfomanceSummary ? model.getBestResult(testResults) : {}
-  const initBestValue = testResults.hasOwnProperty('initBestValue') ? testResults.initBestValue : null
-  const propVal = {}
+  // Convert test results to CSV format
+  const CSVResults = file.convertResultsToCSV(testResults);
+
+  // Get the best result from the performance summary
+  const bestResult = testResults.perfomanceSummary ? model.getBestResult(testResults) : {};
+  const initBestValue = testResults.hasOwnProperty('initBestValue') ? testResults.initBestValue : null;
+
+  // Prepare the property values for the best result
+  const propVal = {};
   testResults.paramsNames.forEach(paramName => {
-    if(bestResult.hasOwnProperty(`__${paramName}`))
-      propVal[paramName] = bestResult[`__${paramName}`]
-  })
-  if (isFinalTest)
-    await tv.setStrategyParams(testResults.shortName, propVal)
-  let text = `All done.\n\n`
-  text += bestResult && bestResult.hasOwnProperty(testParams.optParamName) ? 'The best '+ (testResults.isMaximizing ? '(max) ':'(min) ') + testParams.optParamName + ': ' + backtest.convertValue(bestResult[testParams.optParamName]) : ''
-  text += (initBestValue !== null && bestResult && bestResult.hasOwnProperty(testParams.optParamName) && initBestValue === bestResult[testParams.optParamName]) ? `\nIt isn't improved from the initial value: ${backtest.convertValue(initBestValue)}` : ''
-  ui.statusMessage(text)
-  console.log(`All done.\n\n${bestResult && bestResult.hasOwnProperty(testParams.optParamName) ? 'The best ' + (testResults.isMaximizing ? '(max) ':'(min) ')  + testParams.optParamName + ': ' + bestResult[testParams.optParamName] : ''}`)
-  if(testParams.shouldSkipWaitingForDownload || !isFinalTest)
-    file.saveAs(CSVResults, `${testResults.ticker}:${testResults.timeFrame}${testResults.isDeepTest ? ' deep backtesting' : ''} ${testResults.shortName} - ${testResults.cycles}_${testResults.isMaximizing ? 'max':'min'}_${testResults.optParamName}_${testResults.method}.csv`)
+    if (bestResult.hasOwnProperty(`__${paramName}`)) {
+      propVal[paramName] = bestResult[`__${paramName}`];
+    }
+  });
+
+  // Set strategy parameters if this is the final test
   if (isFinalTest) {
-    await ui.showPopup(text)
-    if(!testParams.shouldSkipWaitingForDownload)
-       file.saveAs(CSVResults, `${testResults.ticker}:${testResults.timeFrame}${testResults.isDeepTest ? ' deep backtesting' : ''} ${testResults.shortName} - ${testResults.cycles}_${testResults.isMaximizing ? 'max':'min'}_${testResults.optParamName}_${testResults.method}.csv`)
+    await tv.setStrategyParams(testResults.shortName, propVal);
   }
-}
+
+  // Prepare the status message
+  let text = `All done.\n\n`;
+  if (bestResult && bestResult.hasOwnProperty(testParams.optParamName)) {
+    text += `The best ${testResults.isMaximizing ? '(max) ' : '(min) '}${testParams.optParamName}: ${backtest.convertValue(bestResult[testParams.optParamName])}`;
+  }
+  if (initBestValue !== null && bestResult && bestResult.hasOwnProperty(testParams.optParamName) && initBestValue === bestResult[testParams.optParamName]) {
+    text += `\nIt isn't improved from the initial value: ${backtest.convertValue(initBestValue)}`;
+  }
+
+  // Display the status message
+  ui.statusMessage(text);
+  console.log(`All done.\n\n${bestResult && bestResult.hasOwnProperty(testParams.optParamName) ? 'The best ' + (testResults.isMaximizing ? '(max) ' : '(min) ') + testParams.optParamName + ': ' + bestResult[testParams.optParamName] : ''}`);
+
+  // Save the results to a file
+  const fileName = `${testResults.ticker}:${testResults.timeFrame}${testResults.isDeepTest ? ' deep backtesting' : ''} ${testResults.shortName} - ${testResults.cycles}_${testResults.isMaximizing ? 'max' : 'min'}_${testResults.optParamName}_${testResults.method}.csv`;
+ 
+  file.saveAs(CSVResults, fileName);
+  /*
+  if (testParams.shouldSkipWaitingForDownload || !isFinalTest) {
+    file.saveAs(CSVResults, fileName);
+  }
+  if (isFinalTest) {
+    await ui.showPopup(text);
+    if (!testParams.shouldSkipWaitingForDownload) {
+      file.saveAs(CSVResults, fileName);
+    }
+  }*/
+};
 
 
 action.show3DChart = async () => {
